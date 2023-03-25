@@ -31,18 +31,17 @@ def start_project():
         config = {
             "file_count": 0
         }
-        # make config file
-        with open('wavs/config.txt', 'w') as f:
+        with open('wavs/config.json', 'w') as f:
             f.write(json.dumps(config))
         
         with open('wavs/metadata.txt', 'w') as f:
-            f.write('empty')
+            pass
 
         return f'Created project at {pathlib.Path.cwd()}/wavs'
 
 
 @app.route('/save', methods=['POST'])
-def save():
+def save_audio():
     if request.method == 'POST':
         language = request.form['language']
         model = request.form['model_size']
@@ -53,25 +52,30 @@ def save():
         audio_model = whisper.load_model(model)
 
         wav_file = request.files['audio_data']
-        save_path = f'wavs/{next_file_name()}'
+        save_path = f'wavs/{next_filename()}'
         wav_file.save(save_path)
+        
+
+        # edit transcription
 
         if language == 'english':
             result = audio_model.transcribe(save_path, language='english')
         else:
             result = audio_model.transcribe(save_path)
 
+        # write transcribed line to metadata.txt
+        add_line(result['text'], save_path)
+        iterate_file_count()
+
         return {"text": result['text'], "filename": save_path} 
 
 
-@app.route('/updateTranscription', methods=['PUT'])
-def updateTranscription():
-    if request.method == 'PUT':
-        # get filename from request
-        # get new text from request
-        # use filename to find line to update
-        # replace old text in that line with new text
-        return
+# @app.route('/save_transcription', methods=['PUT'])
+# def save_transcription():
+#     if request.method == 'PUT':
+#         transcription = request.form['transcription']
+
+
 
 
 @app.route('/transcribe', methods=['POST'])
@@ -103,10 +107,17 @@ def transcribe():
 
 def add_line(text, filename): 
     with open('wavs/metadata.txt', 'a') as f:
-        f.write(f'{filename}|{text}')
+        f.write(f'\n{filename}|{text}')
 
 
-def next_file_name():
-    with open('wavs/config.txt', 'r') as f:
+def next_filename():
+    with open('wavs/config.json', 'r') as f:
         config = json.load(f)
     return f'wav{config["file_count"]}'
+
+def iterate_file_count():
+    with open('wavs/config.json', 'r') as f:
+        config = json.load(f)
+    config["file_count"] = config["file_count"] + 1;
+    with open('wavs/config.json', 'w') as f:
+        f.write(json.dumps(config))

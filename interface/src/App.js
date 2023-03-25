@@ -234,16 +234,18 @@ const App = ({ classes }) => {
     formData.append("language", selectedLangRef.current);
     formData.append("model_size", modelOptions[selectedModelRef.current]);
     formData.append("audio_data", recordedBlob.blob, "temp_recording");
-    axios.post(`${BACKEND_URL}/save`, formData, { headers }).then((res) => {
-      const { text, filename } = res.data;
-      setFilename(() => filename);
-      setTranscribedData(() => [text]);
-      setIsTranscribing(false);
-      intervalRef.current = setInterval(
-        transcribeInterim,
-        transcribeTimeout * 1000
-      );
-    });
+    axios
+      .post(`${BACKEND_URL}/save_audio`, formData, { headers })
+      .then((res) => {
+        const { text, filename } = res.data;
+        setFilename(() => filename);
+        setTranscribedData(() => [text]);
+        setIsTranscribing(false);
+        intervalRef.current = setInterval(
+          transcribeInterim,
+          transcribeTimeout * 1000
+        );
+      });
 
     if (!stopTranscriptionSessionRef.current) {
       setIsRecording(true);
