@@ -16,52 +16,39 @@ def load_project():
     if request.method == 'POST':
         return
 
-
 @app.route('/start_project', methods=['POST'])
 def start_project():
     if request.method == 'POST':
-        # make wavs dir
-        try:
-            pathlib.Path('wavs').mkdir(exist_ok=False)
-        except FileExistsError:
-            return 'Project already exists. This version supports only one project.'
-        except:
-            return 'Some other error'
-
+        language, model = model_params(request.form['language'], request.form['model_size'])
         config = {
-            "file_count": 0
+            "file_count": 0,
+            "language": language,
+            "model": model
         }
-        with open('wavs/config.json', 'w') as f:
-            f.write(json.dumps(config))
-        
-        with open('wavs/metadata.txt', 'w') as f:
-            pass
-
+        init_project(config)
         return f'Created project at {pathlib.Path.cwd()}/wavs'
 
 
-@app.route('/save', methods=['POST'])
+@app.route('/save_audio', methods=['POST'])
 def save_audio():
     if request.method == 'POST':
-        language = request.form['language']
-        model = request.form['model_size']
-
-        # there are no english models for large
-        if model != 'large' and language == 'english':
-            model = model + '.en'
-        audio_model = whisper.load_model(model)
 
         wav_file = request.files['audio_data']
-        save_path = f'wavs/{next_filename()}'
-        wav_file.save(save_path)
+        try:
+            save_path = f'wavs/{next_filename()}'
+            wav_file.save(save_path)
+        except:
+            start_project()
+            save_path = f'wavs/{next_filename()}'
+            wav_file.save(save_path)
         
+        # retrieve model and language from config
+        with open('wavs/config.json','r') as f:
+            config = json.load(f)
 
-        # edit transcription
-
-        if language == 'english':
-            result = audio_model.transcribe(save_path, language='english')
-        else:
-            result = audio_model.transcribe(save_path)
+        # transcribe audio
+        audio_model = whisper.load_model(config['model'])
+        result = audio_model.transcribe(save_path, language=config['language'])
 
         # write transcribed line to metadata.txt
         add_line(result['text'], save_path)
@@ -70,12 +57,12 @@ def save_audio():
         return {"text": result['text'], "filename": save_path} 
 
 
-# @app.route('/save_transcription', methods=['PUT'])
-# def save_transcription():
-#     if request.method == 'PUT':
-#         transcription = request.form['transcription']
-
-
+@app.route('/save_transcription', methods=['POST'])
+def save_transcription():
+    if request.method == 'POST':
+        transcription = request.form['reviewedTranscription']
+        print(transcription)
+        return 'success'
 
 
 @app.route('/transcribe', methods=['POST'])
@@ -121,3 +108,25 @@ def iterate_file_count():
     config["file_count"] = config["file_count"] + 1;
     with open('wavs/config.json', 'w') as f:
         f.write(json.dumps(config))
+
+
+def model_params(language, model_size):
+    model = model_size
+    # there are no english models for large
+    if model_size != 'large' and language == 'english':
+        model = model_size + '.en'
+    return language, model
+
+def init_project(config):
+    try:
+        pathlib.Path('wavs').mkdir(exist_ok=False)
+    except FileExistsError:
+        return 'Project already exists. This version supports only one project.'
+    except:
+        return 'Some other error'
+
+    with open('wavs/config.json', 'w') as f:
+        f.write(json.dumps(config))
+    
+    with open('wavs/metadata.txt', 'w') as f:
+        pass

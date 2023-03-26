@@ -1,14 +1,13 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { Button } from "react-bootstrap";
 import withStyles from "@material-ui/core/styles/withStyles";
 import Typography from "@material-ui/core/Typography";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./App.css";
-import TranscribeOutput from "./TranscribeOutput";
-import SettingsSections from "./SettingsSection";
 import { ReactMic } from "react-mic";
 import axios from "axios";
-import { PulseLoader } from "react-spinners";
+import Transcription from "./components/Transcription";
+import ProjectSetup from "./pages/ProjectSetup";
 
 const useStyles = () => ({
   root: {
@@ -22,11 +21,6 @@ const useStyles = () => ({
   title: {
     marginBottom: "30px",
   },
-  settingsSection: {
-    marginBottom: "20px",
-    display: "flex",
-    width: "100%",
-  },
   buttonsSection: {
     marginBottom: "40px",
   },
@@ -39,153 +33,34 @@ const BACKEND_URL = "http://0.0.0.0:8000";
 
 const App = ({ classes }) => {
   const [transcribedData, setTranscribedData] = useState([]);
-  const [filename, setFilename] = useState("");
-  const [interimTranscribedData] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState("english");
-  const [selectedModel, setSelectedModel] = useState(1);
-  const [transcribeTimeout, setTranscribeTimout] = useState(5);
+  const [isCorrecting, setIsCorrecting] = useState(false);
+  const [isIdle, setIsIdle] = useState(true);
+  const [isConfigured, setConfigured] = useState(false);
+
   const [stopTranscriptionSession, setStopTranscriptionSession] =
     useState(false);
-
-  const intervalRef = useRef(null);
 
   const stopTranscriptionSessionRef = useRef(stopTranscriptionSession);
   stopTranscriptionSessionRef.current = stopTranscriptionSession;
 
-  const selectedLangRef = useRef(selectedLanguage);
-  selectedLangRef.current = selectedLanguage;
-
-  const selectedModelRef = useRef(selectedModel);
-  selectedModelRef.current = selectedModel;
-
-  const supportedLanguages = [
-    "english",
-    "chinese",
-    "german",
-    "spanish",
-    "russian",
-    "korean",
-    "french",
-    "japanese",
-    "portuguese",
-    "turkish",
-    "polish",
-    "catalan",
-    "dutch",
-    "arabic",
-    "swedish",
-    "italian",
-    "indonesian",
-    "hindi",
-    "finnish",
-    "vietnamese",
-    "hebrew",
-    "ukrainian",
-    "greek",
-    "malay",
-    "czech",
-    "romanian",
-    "danish",
-    "hungarian",
-    "tamil",
-    "norwegian",
-    "thai",
-    "urdu",
-    "croatian",
-    "bulgarian",
-    "lithuanian",
-    "latin",
-    "maori",
-    "malayalam",
-    "welsh",
-    "slovak",
-    "telugu",
-    "persian",
-    "latvian",
-    "bengali",
-    "serbian",
-    "azerbaijani",
-    "slovenian",
-    "kannada",
-    "estonian",
-    "macedonian",
-    "breton",
-    "basque",
-    "icelandic",
-    "armenian",
-    "nepali",
-    "mongolian",
-    "bosnian",
-    "kazakh",
-    "albanian",
-    "swahili",
-    "galician",
-    "marathi",
-    "punjabi",
-    "sinhala",
-    "khmer",
-    "shona",
-    "yoruba",
-    "somali",
-    "afrikaans",
-    "occitan",
-    "georgian",
-    "belarusian",
-    "tajik",
-    "sindhi",
-    "gujarati",
-    "amharic",
-    "yiddish",
-    "lao",
-    "uzbek",
-    "faroese",
-    "haitian creole",
-    "pashto",
-    "turkmen",
-    "nynorsk",
-    "maltese",
-    "sanskrit",
-    "luxembourgish",
-    "myanmar",
-    "tibetan",
-    "tagalog",
-    "malagasy",
-    "assamese",
-    "tatar",
-    "hawaiian",
-    "lingala",
-    "hausa",
-    "bashkir",
-    "javanese",
-    "sundanese",
-  ];
-
-  const modelOptions = ["tiny", "base", "small", "medium", "large", "large-v1"];
-
-  useEffect(() => {
-    return () => clearInterval(intervalRef.current);
-  }, []);
-
-  function handleTranscribeTimeoutChange(newTimeout) {
-    setTranscribeTimout(newTimeout);
-  }
+  // useEffect(() => {
+  //   setIsCorrecting((!isRecording || !isTranscribing) && !isIdle);
+  //   setIsIdle(!isRecording && !isTranscribing && !isCorrecting);
+  //   console.log(`isIdle: ${isIdle} ----- isCorrecting: ${isCorrecting}`);
+  // }, [isCorrecting, isIdle, isRecording, isTranscribing]);
 
   function startRecording() {
     setStopTranscriptionSession(false);
     setIsRecording(true);
-    intervalRef.current = setInterval(
-      transcribeInterim,
-      transcribeTimeout * 1000
-    );
+    setIsIdle(false);
   }
 
   function stopRecording() {
-    clearInterval(intervalRef.current);
     setStopTranscriptionSession(true);
     setIsRecording(false);
-    setIsTranscribing(false);
+    // setIsTranscribing(false);
   }
 
   function onData(recordedBlob) {
@@ -197,124 +72,95 @@ const App = ({ classes }) => {
     setIsTranscribing(true);
   }
 
-  function transcribeInterim() {
-    clearInterval(intervalRef.current);
-    setIsRecording(false);
-  }
-
-  function transcribeRecording(recordedBlob) {
-    const headers = {
-      "content-type": "multipart/form-data",
-    };
-    const formData = new FormData();
-    formData.append("language", selectedLangRef.current);
-    formData.append("model_size", modelOptions[selectedModelRef.current]);
-    formData.append("audio_data", recordedBlob.blob, "temp_recording");
-    axios
-      .post(`${BACKEND_URL}/transcribe`, formData, { headers })
-      .then((res) => {
-        setTranscribedData((oldData) => [...oldData, res.data]);
-        setIsTranscribing(false);
-        intervalRef.current = setInterval(
-          transcribeInterim,
-          transcribeTimeout * 1000
-        );
-      });
-
-    if (!stopTranscriptionSessionRef.current) {
-      setIsRecording(true);
-    }
-  }
-
   function saveRecordingAndKeepPath(recordedBlob) {
     const headers = {
       "content-type": "multipart/form-data",
     };
     const formData = new FormData();
-    formData.append("language", selectedLangRef.current);
-    formData.append("model_size", modelOptions[selectedModelRef.current]);
     formData.append("audio_data", recordedBlob.blob, "temp_recording");
     axios
       .post(`${BACKEND_URL}/save_audio`, formData, { headers })
       .then((res) => {
-        const { text, filename } = res.data;
-        setFilename(() => filename);
+        const { text } = res.data;
         setTranscribedData(() => [text]);
         setIsTranscribing(false);
-        intervalRef.current = setInterval(
-          transcribeInterim,
-          transcribeTimeout * 1000
-        );
+        setIsCorrecting(true);
       });
 
     if (!stopTranscriptionSessionRef.current) {
       setIsRecording(true);
     }
+  }
+
+  function updateTranscription(formData) {
+    const headers = {
+      "content-type": "multipart/form-data",
+    };
+    axios.post(`${BACKEND_URL}/save_transcription`, formData, { headers });
+
+    setIsIdle(true);
+    setIsCorrecting(false);
   }
 
   return (
     <div className={classes.root}>
       <div className={classes.title}>
         <Typography variant="h3">
-          Whisper Playground{" "}
-          <span role="img" aria-label="microphone-emoji">
-            🎤
+          <span role="img" aria-label="monkey-emoji">
+            🙉
+          </span>{" "}
+          Echo Keeper{" "}
+          <span role="img" aria-label="monkey-emoji">
+            🙉
           </span>
         </Typography>
       </div>
-      <div className={classes.settingsSection}>
-        <SettingsSections
-          disabled={isTranscribing || isRecording}
-          possibleLanguages={supportedLanguages}
-          selectedLanguage={selectedLanguage}
-          onLanguageChange={setSelectedLanguage}
-          modelOptions={modelOptions}
-          selectedModel={selectedModel}
-          onModelChange={setSelectedModel}
-          transcribeTimeout={transcribeTimeout}
-          onTranscribeTiemoutChanged={handleTranscribeTimeoutChange}
-        />
-      </div>
-      <div className={classes.buttonsSection}>
-        {!isRecording && !isTranscribing && (
-          <Button onClick={startRecording} variant="primary">
-            Start transcribing
-          </Button>
-        )}
-        {(isRecording || isTranscribing) && (
-          <Button
-            onClick={stopRecording}
-            variant="danger"
-            disabled={stopTranscriptionSessionRef.current}
-          >
-            Stop
-          </Button>
-        )}
-      </div>
 
-      <div className="recordIllustration">
-        <ReactMic
-          record={isRecording}
-          className="sound-wave"
-          onStop={onStop}
-          onData={onData}
-          strokeColor="#0d6efd"
-          backgroundColor="#f6f6ef"
+      {!isConfigured ? (
+        <ProjectSetup
+          onConfigure={setConfigured}
+          isTranscribing={isTranscribing}
+          isRecording={isRecording}
         />
-      </div>
+      ) : (
+        <>
+          <div className={classes.buttonsSection}>
+            {!isRecording && !isTranscribing && isIdle && (
+              <Button onClick={startRecording} variant="primary">
+                Start transcribing
+              </Button>
+            )}
+            {(isRecording || isTranscribing) && (
+              <Button
+                onClick={stopRecording}
+                variant="danger"
+                disabled={stopTranscriptionSessionRef.current}
+              >
+                Stop
+              </Button>
+            )}
+          </div>
 
-      <div>
-        <TranscribeOutput
-          transcribedText={transcribedData}
-          interimTranscribedText={interimTranscribedData}
-        />
-        <PulseLoader
-          sizeUnit={"px"}
-          size={20}
-          color="purple"
-          loading={isTranscribing}
-        />
-      </div>
+          <div className="recordIllustration">
+            {!isCorrecting && (
+              <ReactMic
+                record={isRecording}
+                className="sound-wave"
+                onStop={onStop}
+                onData={onData}
+                strokeColor="#0d6efd"
+                backgroundColor="#f6f6ef"
+              />
+            )}
+            {isCorrecting && (
+              <Transcription
+                transcribedText={transcribedData}
+                updateTranscription={updateTranscription}
+              />
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 };
