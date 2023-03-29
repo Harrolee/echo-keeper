@@ -5,11 +5,23 @@ import tempfile
 import flask
 from flask import request
 from flask_cors import CORS
+from flask import Flask, render_template, redirect, request, session
+from flask_session import Session
 import whisper
 
 app = flask.Flask(__name__)
 CORS(app)
+app.config["SESSION_PERMANENT"] = False
+app.config["SESSION_TYPE"] = "filesystem"
+Session(app)
 
+ECHO_SCHEMA = {
+    "filename": 'name',
+    'length_in_seconds' : 22,
+    'contents' : 'words transcribed by user',
+}
+METADATA_JSON_PATH = 'wavs/metadata.json'
+CONFIG_JSON_PATH = 'wavs/config.json'
 
 @app.route('/load_project', methods=['POST'])
 def load_project():
@@ -43,16 +55,12 @@ def save_audio():
             wav_file.save(save_path)
         
         # retrieve model and language from config
-        with open('wavs/config.json','r') as f:
+        with open(CONFIG_JSON_PATH,'r') as f:
             config = json.load(f)
 
         # transcribe audio
         audio_model = whisper.load_model(config['model'])
         result = audio_model.transcribe(save_path, language=config['language'])
-
-        # write transcribed line to metadata.txt
-        add_line(result['text'], save_path)
-        iterate_file_count()
 
         return {"text": result['text'], "filename": save_path} 
 
@@ -61,8 +69,10 @@ def save_audio():
 def save_transcription():
     if request.method == 'POST':
         transcription = request.form['reviewedTranscription']
-        print(transcription)
-        return 'success'
+        save_path = f'wavs/{next_filename()}'
+        add_echo(transcription, save_path)
+        iterate_file_count()
+        return f'saved {transcription}'
 
 
 @app.route('/transcribe', methods=['POST'])
@@ -96,17 +106,16 @@ def add_line(text, filename):
     with open('wavs/metadata.txt', 'a') as f:
         f.write(f'\n{filename}|{text}')
 
-
 def next_filename():
-    with open('wavs/config.json', 'r') as f:
+    with open(CONFIG_JSON_PATH, 'r') as f:
         config = json.load(f)
     return f'wav{config["file_count"]}'
 
 def iterate_file_count():
-    with open('wavs/config.json', 'r') as f:
+    with open(CONFIG_JSON_PATH, 'r') as f:
         config = json.load(f)
     config["file_count"] = config["file_count"] + 1;
-    with open('wavs/config.json', 'w') as f:
+    with open(CONFIG_JSON_PATH, 'w') as f:
         f.write(json.dumps(config))
 
 
@@ -125,8 +134,51 @@ def init_project(config):
     except:
         return 'Some other error'
 
-    with open('wavs/config.json', 'w') as f:
+    with open(CONFIG_JSON_PATH, 'w') as f:
         f.write(json.dumps(config))
     
-    with open('wavs/metadata.txt', 'w') as f:
-        pass
+    with open(METADATA_JSON_PATH, 'w') as f:
+        f.write(json.dumps({
+            "project_name": "get name of project from session in future feature",
+            "echoes": [],
+        }))
+
+def add_echo(transcription, save_path):
+    with open(METADATA_JSON_PATH, 'r') as f:
+        contents = json.load(f)
+    contents['echoes'].append({
+        "filename": save_path,
+        "length_in_seconds" : seconds_in_wav(save_path),
+        "contents" : transcription,
+    })
+    with open(METADATA_JSON_PATH, 'w') as f:
+        f.write(json.dumps(contents))
+
+def seconds_in_wav(path_of_wav_file):
+    # somehow get seconds
+    return 3
+
+@app.route('/export_metadata_txt', methods=['POST'])
+def export_metadata_txt(outfile = 'wavs/metadata.txt'):
+    """
+    Convert metadata.json to txt
+    Why? the coqui docs suggest working with a pipe-delimited txt file.
+    """
+    if request.method == 'POST':
+        with open(outfile, 'w') as f:
+            pass
+        with open(METADATA_JSON_PATH, 'r') as f:
+            metadata = json.load(f)
+        for echo in metadata['echoes']:
+            add_line(echo['contents'], outfile)
+        return 'exported'
+
+@app.route('/duration_total', methods=['GET'])
+def duration_total():
+    if request.method == 'GET':
+        total_duration = 0
+        with open(METADATA_JSON_PATH, 'r') as f:
+            metadata = json.load(f)
+        for echo in metadata['echoes']:
+            total_duration += echo['length_in_seconds']
+        return f'recored {total_duration} seconds of audio for this project'
