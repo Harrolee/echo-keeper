@@ -5,7 +5,7 @@ import { supportedLanguages, modelOptions } from "../constants";
 import withStyles from "@material-ui/core/styles/withStyles";
 import { Button } from "react-bootstrap";
 
-const BACKEND_URL = "http://0.0.0.0:8000";
+const BACKEND_URL = "http://127.0.0.1:8000";
 const useStyles = () => ({
   settings: {
     marginBottom: "20px",
