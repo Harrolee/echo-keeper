@@ -102,6 +102,12 @@ const App = ({ classes }) => {
     setIsCorrecting(false);
   }
 
+  function handleDeleteRecording() {
+    axios.delete(`${BACKEND_URL}/delete_recording`);
+    setIsIdle(true);
+    setIsCorrecting(false);
+  }
+
   return (
     <div className={classes.root}>
       <div className={classes.title}>
@@ -153,10 +159,19 @@ const App = ({ classes }) => {
               />
             )}
             {isCorrecting && (
-              <Transcription
-                transcribedText={transcribedData}
-                updateTranscription={updateTranscription}
-              />
+              <>
+                <Transcription
+                  transcribedText={transcribedData}
+                  updateTranscription={updateTranscription}
+                />
+                <Button
+                  type="submit"
+                  variant="danger"
+                  onClick={handleDeleteRecording}
+                >
+                  Delete recording
+                </Button>
+              </>
             )}
           </div>
         </>

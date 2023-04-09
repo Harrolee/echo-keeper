@@ -1,5 +1,5 @@
 import os
-import pathlib
+from pathlib import Path
 import json
 import tempfile
 import flask
@@ -38,7 +38,7 @@ def start_project():
             "model": model
         }
         init_project(config)
-        return f'Created project at {pathlib.Path.cwd()}/wavs'
+        return f'Created project at {Path.cwd()}/wavs'
 
 
 @app.route('/save_audio', methods=['POST'])
@@ -71,9 +71,22 @@ def save_transcription():
         transcription = request.form['reviewedTranscription']
         save_path = f'wavs/{next_filename()}'
         add_echo(transcription, save_path)
-        iterate_file_count()
+        increment_file_count()
         return f'saved {transcription}'
+    
+@app.route('/delete_recording', methods=['DELETE'])
+def delete_recording():
+    if request.method == 'DELETE':
+        echo_path = f'wavs/{next_filename()}'
+        Path.unlink(Path(echo_path))
+        return f'deleted {echo_path}'
 
+@app.route('/delete_echo', methods=['DELETE'])
+def delete_echo():
+        # deletes the latest echo from fs and from metadata['echoes']
+        echo_path = f'wavs/{current_filename()}'
+        rm_echo(echo_path)
+        decrement_file_count()
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
@@ -111,10 +124,22 @@ def next_filename():
         config = json.load(f)
     return f'wav{config["file_count"]}'
 
-def iterate_file_count():
+def current_filename():
+    with open(CONFIG_JSON_PATH, 'r') as f:
+        config = json.load(f)
+    return f'wav{config["file_count"] - 1}'
+
+def increment_file_count():
     with open(CONFIG_JSON_PATH, 'r') as f:
         config = json.load(f)
     config["file_count"] = config["file_count"] + 1;
+    with open(CONFIG_JSON_PATH, 'w') as f:
+        f.write(json.dumps(config))
+
+def decrement_file_count():
+    with open(CONFIG_JSON_PATH, 'r') as f:
+        config = json.load(f)
+    config["file_count"] = config["file_count"] - 1;
     with open(CONFIG_JSON_PATH, 'w') as f:
         f.write(json.dumps(config))
 
@@ -128,7 +153,7 @@ def model_params(language, model_size):
 
 def init_project(config):
     try:
-        pathlib.Path('wavs').mkdir(exist_ok=False)
+        Path('wavs').mkdir(exist_ok=False)
     except FileExistsError:
         return 'Project already exists. This version supports only one project.'
     except:
@@ -153,6 +178,17 @@ def add_echo(transcription, save_path):
     })
     with open(METADATA_JSON_PATH, 'w') as f:
         f.write(json.dumps(contents))
+
+def rm_echo(echo_path):
+    rm_echo_from_metadata(echo_path)
+    Path.unlink(Path(echo_path))
+
+def rm_echo_from_metadata(filename):
+    with open(METADATA_JSON_PATH, 'r') as f:
+        metadata = json.load(f)
+    metadata['echoes'] = list(filter(lambda echo: echo['filename'] != filename, metadata['echoes']))    
+    with open(METADATA_JSON_PATH, 'w') as f:
+        f.write(json.dumps(metadata))
 
 def seconds_in_wav(path_of_wav_file):
     # somehow get seconds
