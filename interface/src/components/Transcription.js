@@ -2,7 +2,12 @@ import React from "react";
 import withStyles from "@material-ui/core/styles/withStyles";
 import { Button } from "react-bootstrap";
 
-const useStyles = () => ({});
+const useStyles = () => ({
+  textSection: {
+    marginTop: "20px",
+    marginBottom: "15px",
+  },
+});
 
 const Transcription = ({ classes, transcribedText, updateTranscription }) => {
   function handleSubmit(e) {
@@ -21,6 +26,7 @@ const Transcription = ({ classes, transcribedText, updateTranscription }) => {
       </Button>
       <br />
       <textarea
+        className={classes.textSection}
         name="reviewedTranscription"
         defaultValue={transcribedText}
         rows={2}

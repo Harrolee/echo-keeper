@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Button } from "react-bootstrap";
 import withStyles from "@material-ui/core/styles/withStyles";
 import Typography from "@material-ui/core/Typography";
@@ -7,6 +7,7 @@ import "./App.css";
 import { ReactMic } from "react-mic";
 import axios from "axios";
 import Transcription from "./components/Transcription";
+import PromptWrapper from "./components/PromptWrapper";
 import ProjectSetup from "./pages/ProjectSetup";
 
 const useStyles = () => ({
@@ -19,7 +20,7 @@ const useStyles = () => ({
     flexDirection: "column",
   },
   title: {
-    marginBottom: "30px",
+    marginBottom: "50px",
   },
   buttonsSection: {
     marginBottom: "40px",
@@ -38,12 +39,21 @@ const App = ({ classes }) => {
   const [isCorrecting, setIsCorrecting] = useState(false);
   const [isIdle, setIsIdle] = useState(true);
   const [isConfigured, setConfigured] = useState(false);
+  const [prompts, setPrompts] = useState([]);
+  const [promptIndex, setPromptIndex] = useState(0);
 
   const [stopTranscriptionSession, setStopTranscriptionSession] =
     useState(false);
 
   const stopTranscriptionSessionRef = useRef(stopTranscriptionSession);
   stopTranscriptionSessionRef.current = stopTranscriptionSession;
+
+  useEffect(() => {
+    axios.get(`${BACKEND_URL}/prompts`).then((res) => {
+      console.log(JSON.stringify(res));
+      setPrompts(res.data["prompts"]);
+    });
+  }, [setPrompts]);
 
   // useEffect(() => {
   //   setIsCorrecting((!isRecording || !isTranscribing) && !isIdle);
@@ -61,10 +71,6 @@ const App = ({ classes }) => {
     setStopTranscriptionSession(true);
     setIsRecording(false);
     // setIsTranscribing(false);
-  }
-
-  function onData(recordedBlob) {
-    // console.log('chunk of real-time data is: ', recordedBlob);
   }
 
   function onStop(recordedBlob) {
@@ -92,12 +98,13 @@ const App = ({ classes }) => {
     }
   }
 
-  function updateTranscription(formData) {
+  function onUpdateTranscription(formData) {
     const headers = {
       "content-type": "multipart/form-data",
     };
     axios.post(`${BACKEND_URL}/save_transcription`, formData, { headers });
 
+    setPromptIndex(promptIndex++);
     setIsIdle(true);
     setIsCorrecting(false);
   }
@@ -132,37 +139,28 @@ const App = ({ classes }) => {
         <>
           <div className={classes.buttonsSection}>
             {!isRecording && !isTranscribing && isIdle && (
-              <Button onClick={startRecording} variant="primary">
-                Start transcribing
-              </Button>
+              <PromptWrapper prompt={prompts[promptIndex]}>
+                <Button onClick={startRecording} variant="primary">
+                  Start transcribing
+                </Button>
+              </PromptWrapper>
             )}
             {(isRecording || isTranscribing) && (
-              <Button
-                onClick={stopRecording}
-                variant="danger"
-                disabled={stopTranscriptionSessionRef.current}
-              >
-                Stop
-              </Button>
-            )}
-          </div>
-
-          <div className="recordIllustration">
-            {!isCorrecting && (
-              <ReactMic
-                record={isRecording}
-                className="sound-wave"
-                onStop={onStop}
-                onData={onData}
-                strokeColor="#0d6efd"
-                backgroundColor="#f6f6ef"
-              />
+              <PromptWrapper prompt={prompts[promptIndex]}>
+                <Button
+                  onClick={stopRecording}
+                  variant="danger"
+                  disabled={stopTranscriptionSessionRef.current}
+                >
+                  Stop
+                </Button>
+              </PromptWrapper>
             )}
             {isCorrecting && (
               <>
                 <Transcription
                   transcribedText={transcribedData}
-                  updateTranscription={updateTranscription}
+                  updateTranscription={onUpdateTranscription}
                 />
                 <Button
                   type="submit"
@@ -172,6 +170,18 @@ const App = ({ classes }) => {
                   Delete recording
                 </Button>
               </>
+            )}
+          </div>
+
+          <div className="recordIllustration">
+            {!isCorrecting && (
+              <ReactMic
+                record={isRecording}
+                className="sound-wave"
+                onStop={onStop}
+                strokeColor="#0d6efd"
+                backgroundColor="#f6f6ef"
+              />
             )}
           </div>
         </>

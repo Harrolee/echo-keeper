@@ -22,6 +22,7 @@ ECHO_SCHEMA = {
 }
 METADATA_JSON_PATH = 'wavs/metadata.json'
 CONFIG_JSON_PATH = 'wavs/config.json'
+PROMPTS_PATH = 'prompts/calmingSentences.json'
 
 @app.route('/load_project', methods=['POST'])
 def load_project():
@@ -217,4 +218,12 @@ def duration_total():
             metadata = json.load(f)
         for echo in metadata['echoes']:
             total_duration += echo['length_in_seconds']
-        return f'recored {total_duration} seconds of audio for this project'
+        return f'recorded {total_duration} seconds of audio for this project'
+
+@app.route('/prompts', methods=['GET'])
+def get_prompts():
+    if request.method == 'GET':
+        with open(PROMPTS_PATH, 'r') as f:
+            data = json.load(f)
+            assert len(data['prompts']) != 0
+        return {'prompts': data['prompts']}
