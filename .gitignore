@@ -3,5 +3,6 @@
 /interface/node_modules/
 /.vscode
 /backend/wavs
+local-dev
 flask_session
 .DS_Store

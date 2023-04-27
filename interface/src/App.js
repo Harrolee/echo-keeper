@@ -50,7 +50,6 @@ const App = ({ classes }) => {
 
   useEffect(() => {
     axios.get(`${BACKEND_URL}/prompts`).then((res) => {
-      console.log(JSON.stringify(res));
       setPrompts(res.data["prompts"]);
     });
   }, [setPrompts]);
@@ -104,7 +103,7 @@ const App = ({ classes }) => {
     };
     axios.post(`${BACKEND_URL}/save_transcription`, formData, { headers });
 
-    setPromptIndex(promptIndex++);
+    setPromptIndex(promptIndex + 1);
     setIsIdle(true);
     setIsCorrecting(false);
   }

@@ -31,6 +31,7 @@ const Transcription = ({ classes, transcribedText, updateTranscription }) => {
         defaultValue={transcribedText}
         rows={2}
         columns={100}
+        style={{ height: "150px" }}
       />
     </form>
   );
