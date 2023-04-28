@@ -13,6 +13,7 @@ const Settings = ({
   modelOptions,
   selectedModel,
   onModelChange,
+  onNameProject,
 }) => {
   function onModelChangeLocal(event) {
     onModelChange(event.target.value);
@@ -26,6 +27,16 @@ const Settings = ({
       justifyContent="center"
       alignItems="center"
     >
+      <Grid item>
+        <TextField
+          id="project-name"
+          variant="standard"
+          label="project name"
+          onChange={({ target }) => {
+            onNameProject(target.value);
+          }}
+        />
+      </Grid>
       <Grid item>
         <FormControl variant="standard" sx={{ m: 2, minWidth: 220 }}>
           <InputLabel id="model-select-label">Model size</InputLabel>

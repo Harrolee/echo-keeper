@@ -3,6 +3,7 @@ from pathlib import Path
 import json
 import tempfile
 import flask
+import logging
 from flask import request
 from flask_cors import CORS
 import whisper
@@ -18,9 +19,20 @@ ECHO_SCHEMA = {
     'length_in_seconds': 22,
     'contents': 'words transcribed by user',
 }
-METADATA_JSON_PATH = 'wavs/metadata.json'
-CONFIG_JSON_PATH = 'wavs/config.json'
+
+# TODO: CONVERT THESE FUNCTIONS INTO FIELDS OF A PROJECT CLASS. USE A PROJECT CLASS.
+
+
+def METADATA_JSON_PATH(
+    project_name): return f'projects/{project_name}/metadata.json'
+
+
+def CONFIG_JSON_PATH(
+    project_name): return f'projects/{project_name}/config.json'
+
+
 PROMPTS_PATH = 'prompts/facts.json'
+GLOBAL_PROJECT_NAME = ''
 
 
 @app.route('/load_project', methods=['POST'])
@@ -32,15 +44,20 @@ def load_project():
 @app.route('/start_project', methods=['POST'])
 def start_project():
     if request.method == 'POST':
+        global GLOBAL_PROJECT_NAME
+        GLOBAL_PROJECT_NAME = request.form['project_name']
         language, model = model_params(
             request.form['language'], request.form['model_size'])
         config = {
             "file_count": 0,
             "language": language,
-            "model": model
+            "model": model,
+            "project_name": GLOBAL_PROJECT_NAME
         }
-        init_project(config)
-        return f'Created project at {Path.cwd()}/wavs'
+        failure = init_project(config, GLOBAL_PROJECT_NAME)
+        if failure:
+            return failure
+        return f'Created project at {Path.cwd()}/projects/{GLOBAL_PROJECT_NAME}'
 
 
 @app.route('/save_audio', methods=['POST'])
@@ -160,20 +177,24 @@ def model_params(language, model_size):
     return language, model
 
 
-def init_project(config):
+def init_project(config, project_name):
+    # Ensure the project dir exists
+    Path('projects/').mkdir(exist_ok=True)
+
     try:
-        Path('wavs').mkdir(exist_ok=False)
+        Path(f'projects/{project_name}').mkdir()
     except FileExistsError:
-        return 'Project already exists. This version supports only one project.'
-    except:
-        return 'Some other error'
+        print(FileExistsError)
+        logging.exception(
+            f' A project named {project_name} already exists.')
+        return
 
-    with open(CONFIG_JSON_PATH, 'w') as f:
+    Path(f'projects/{project_name}/wavs').mkdir()
+    with open(CONFIG_JSON_PATH(project_name), 'w') as f:
         f.write(json.dumps(config))
-
-    with open(METADATA_JSON_PATH, 'w') as f:
+    with open(METADATA_JSON_PATH(project_name), 'w') as f:
         f.write(json.dumps({
-            "project_name": "get name of project from session in future feature",
+            "project_name": f'{project_name}',
             "echoes": [],
         }))
 
@@ -212,9 +233,9 @@ def seconds_in_wav(path_of_wav_file):
 
 
 # def save_wav(audio_file: FileStorage, outfile: str):
-    bytes = audio_file.stream.read()
-    buffer = io.BytesIO(bytes)
-    buffer.seek(0)
+    # bytes = audio_file.stream.read()
+    # buffer = io.BytesIO(bytes)
+    # buffer.seek(0)
 
     # audio_file.save(buffer)
 
@@ -222,16 +243,16 @@ def seconds_in_wav(path_of_wav_file):
     # print(audio_file.read())
     # buffer.write(audio_file.read())
 
-    with wave.open(outfile, 'wb') as out_wav:
-        # Set the .wav file parameters based on the FileStorage object
-        out_wav.setnchannels(1)
-        out_wav.setsampwidth(2)
-        out_wav.setframerate(44100)
+    # with wave.open(outfile, 'wb') as out_wav:
+    #     # Set the .wav file parameters based on the FileStorage object
+    #     out_wav.setnchannels(1)
+    #     out_wav.setsampwidth(2)
+    #     out_wav.setframerate(44100)
 
-        # Write the contents of the buffer to the .wav file
-        out_wav.writeframes(buffer.read())
+    #     # Write the contents of the buffer to the .wav file
+    #     out_wav.writeframes(buffer.read())
 
-    buffer.close()
+    # buffer.close()
 
     # # Open a new WAV file for writing
     # output_file = wave.open(outfile, 'w')
@@ -261,8 +282,14 @@ def seconds_in_wav(path_of_wav_file):
 @app.route('/export_metadata_txt', methods=['POST'])
 def export_metadata_txt(outfile='wavs/metadata.txt'):
     """
-    Convert metadata.json to txt
-    Why? the coqui docs suggest working with a pipe-delimited txt file.
+    Convert metadata.json to the lj-speech csv format descibed as below by Keith Ito
+    excpert below from https://keithito.com/LJ-Speech-Dataset/
+
+        Metadata is provided in transcripts.csv. This file consists of one record per line, delimited by the pipe character (0x7c). The fields are:
+
+        ID: this is the name of the corresponding .wav file
+        Transcription: words spoken by the reader (UTF-8)
+        Normalized Transcription: transcription with numbers, ordinals, and monetary units expanded into full words (UTF-8).
     """
     if request.method == 'POST':
         with open(outfile, 'w') as f:

@@ -2,7 +2,7 @@
 /backend/__pycache__/
 /interface/node_modules/
 /.vscode
-/backend/wavs
+/backend/projects/*
 local-dev
 flask_session
 .DS_Store
