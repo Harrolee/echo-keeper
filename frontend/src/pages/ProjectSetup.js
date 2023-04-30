@@ -3,9 +3,6 @@ import axios from "axios";
 import Settings from "../components/Settings";
 import { supportedLanguages, modelOptions } from "../constants";
 import withStyles from "@material-ui/core/styles/withStyles";
-import Select from "@material-ui/core/Select";
-import { FormControl, InputLabel } from "@material-ui/core";
-import MenuItem from "@material-ui/core/MenuItem";
 import { Button } from "react-bootstrap";
 
 const BACKEND_URL = "http://127.0.0.1:8000";
@@ -91,9 +88,23 @@ const ProjectSetup = ({
     </>
   );
 
-  function loadProject(e) {
-    console.log(e);
-    onConfigure(true);
+  function loadProject() {
+    const headers = {
+      "content-type": "multipart/form-data",
+    };
+    const formData = new FormData();
+    formData.append("language", selectedLanguage);
+    formData.append("model_size", modelOptions[selectedModel]);
+    formData.append("project_name", selectedProject);
+    axios
+      .post(`${BACKEND_URL}/load_project`, formData, { headers })
+      .catch(function (error) {
+        alert("Could not load project");
+        console.log(error);
+      })
+      .then(() => {
+        onConfigure(true);
+      });
   }
 
   function createProject() {

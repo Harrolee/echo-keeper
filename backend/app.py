@@ -30,12 +30,15 @@ global_current_project_name = ''
 #             return cls.instance
 
 
+# Hey Lee! Functions in python do not redeclare themselves. 
+# If you want them to use the value for global_current_project_name, 
+# you should create getter functions inside of a class.
 def METADATA_JSON_PATH(
-    project_name=global_current_project_name): return f'projects/{project_name}/metadata.json'
+    project_name=global_current_project_name): return Path(f'projects/{project_name}/metadata.json')
 
 
 def CONFIG_JSON_PATH(
-    project_name=global_current_project_name): return f'projects/{project_name}/config.json'
+    project_name=global_current_project_name): return Path(f'projects/{project_name}/config.json')
 
 
 @app.route('/projects', methods=['GET'])
@@ -57,14 +60,20 @@ def serve_frontend():
 @app.route('/load_project', methods=['POST'])
 def load_project():
     if request.method == 'POST':
-        return
+        global global_current_project_name
+        global_current_project_name = request.form['project_name']
+        # language, model = ogre(global_current_project_name)
+        # # overwrite config with new language and model_size
+        # language, model = model_params(
+        #     request.form['language'], request.form['model_size'])
+        return f"Loaded {global_current_project_name}"
 
 
 @app.route('/start_project', methods=['POST'])
 def start_project():
     if request.method == 'POST':
         global global_current_project_name
-        global_current_project_name = request.form['project_name']
+        global_current_project_name = str(request.form['project_name']).replace(' ', '') # deny spaces
         language, model = model_params(
             request.form['language'], request.form['model_size'])
         config = {
@@ -82,22 +91,24 @@ def start_project():
 @app.route('/save_audio', methods=['POST'])
 def save_audio():
     if request.method == 'POST':
-
         wav_file = request.files['audio_data']
         try:
-            save_path = f'wavs/{next_filename()}'
+            save_path = Path(f'projects/{global_current_project_name}/wavs',next_filename()).__str__()
+            print(save_path)
             wav_file.save(save_path)
         except:
             start_project()
             save_path = f'wavs/{next_filename()}'
             wav_file.save(save_path)
-
+        print('after')
         # retrieve model and language from config
-        with open(CONFIG_JSON_PATH, 'r') as f:
+        with open(CONFIG_JSON_PATH(global_current_project_name), 'r') as f:
+            print('in open')
             config = json.load(f)
 
         # transcribe audio
         audio_model = whisper.load_model(config['model'])
+        print('gonna transcribe')
         result = audio_model.transcribe(save_path, language=config['language'])
 
         return {"text": result['text'], "filename": save_path}
@@ -161,30 +172,31 @@ def add_line(key: str, value: str):
 
 
 def next_filename():
-    with open(CONFIG_JSON_PATH, 'r') as f:
+    print(CONFIG_JSON_PATH(global_current_project_name))
+    with open(CONFIG_JSON_PATH(global_current_project_name), 'r') as f:
         config = json.load(f)
     return f'wav{config["file_count"]}.wav'
 
 
 def current_filename():
-    with open(CONFIG_JSON_PATH, 'r') as f:
+    with open(CONFIG_JSON_PATH(), 'r') as f:
         config = json.load(f)
     return f'wav{config["file_count"] - 1}.wav'
 
 
 def increment_file_count():
-    with open(CONFIG_JSON_PATH, 'r') as f:
+    with open(CONFIG_JSON_PATH(), 'r') as f:
         config = json.load(f)
     config["file_count"] = config["file_count"] + 1
-    with open(CONFIG_JSON_PATH, 'w') as f:
+    with open(CONFIG_JSON_PATH(), 'w') as f:
         f.write(json.dumps(config))
 
 
 def decrement_file_count():
-    with open(CONFIG_JSON_PATH, 'r') as f:
+    with open(CONFIG_JSON_PATH(), 'r') as f:
         config = json.load(f)
     config["file_count"] = config["file_count"] - 1
-    with open(CONFIG_JSON_PATH, 'w') as f:
+    with open(CONFIG_JSON_PATH(), 'w') as f:
         f.write(json.dumps(config))
 
 
@@ -219,14 +231,14 @@ def init_project(config, project_name):
 
 
 def add_echo(transcription, filename):
-    with open(METADATA_JSON_PATH, 'r') as f:
+    with open(METADATA_JSON_PATH(), 'r') as f:
         contents = json.load(f)
     contents['echoes'].append({
         "filename": filename,
         "length_in_seconds": seconds_in_wav(f'wavs/{filename}'),
         "contents": transcription,
     })
-    with open(METADATA_JSON_PATH, 'w') as f:
+    with open(METADATA_JSON_PATH(), 'w') as f:
         f.write(json.dumps(contents))
 
 
@@ -236,11 +248,11 @@ def rm_echo(echo_path):
 
 
 def rm_echo_from_metadata(filename):
-    with open(METADATA_JSON_PATH, 'r') as f:
+    with open(METADATA_JSON_PATH(), 'r') as f:
         metadata = json.load(f)
     metadata['echoes'] = list(
         filter(lambda echo: echo['filename'] != filename, metadata['echoes']))
-    with open(METADATA_JSON_PATH, 'w') as f:
+    with open(METADATA_JSON_PATH(), 'w') as f:
         f.write(json.dumps(metadata))
 
 
@@ -313,7 +325,7 @@ def export_metadata_txt(outfile='wavs/metadata.txt'):
     if request.method == 'POST':
         with open(outfile, 'w') as f:
             pass
-        with open(METADATA_JSON_PATH, 'r') as f:
+        with open(METADATA_JSON_PATH(), 'r') as f:
             metadata = json.load(f)
         for echo in metadata['echoes']:
             add_line(echo['filename'], echo['contents'])
@@ -324,7 +336,7 @@ def export_metadata_txt(outfile='wavs/metadata.txt'):
 def duration_total():
     if request.method == 'GET':
         total_duration = 0
-        with open(METADATA_JSON_PATH, 'r') as f:
+        with open(METADATA_JSON_PATH(), 'r') as f:
             metadata = json.load(f)
         for echo in metadata['echoes']:
             total_duration += echo['length_in_seconds']

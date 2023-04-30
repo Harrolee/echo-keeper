@@ -79,6 +79,9 @@ const App = ({ classes }) => {
     formData.append("audio_data", recordedBlob.blob, "temp_recording");
     axios
       .post(`${BACKEND_URL}/save_audio`, formData, { headers })
+      .catch((error) => {
+        console.error(error);
+      })
       .then((res) => {
         const { text } = res.data;
         setTranscribedData(() => [text]);
