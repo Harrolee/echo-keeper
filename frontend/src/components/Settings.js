@@ -6,10 +6,14 @@ import TextField from "@material-ui/core/TextField";
 import Autocomplete from "@material-ui/lab/Autocomplete";
 
 const Settings = ({
+  newProject,
   disabled,
   possibleLanguages,
   selectedLanguage,
   onLanguageChange,
+  onProjectNameChange,
+  existingProjects,
+  selectedProject,
   modelOptions,
   selectedModel,
   onModelChange,
@@ -28,14 +32,33 @@ const Settings = ({
       alignItems="center"
     >
       <Grid item>
-        <TextField
-          id="project-name"
-          variant="standard"
-          label="project name"
-          onChange={({ target }) => {
-            onNameProject(target.value);
-          }}
-        />
+        {newProject ? (
+          <TextField
+            id="project-name"
+            variant="standard"
+            label="project name"
+            onChange={({ target }) => {
+              onNameProject(target.value);
+            }}
+          />
+        ) : (
+          <FormControl variant="standard" style={{ minWidth: 120 }}>
+            <Autocomplete
+              id="project-name"
+              disableClearable
+              options={existingProjects}
+              getOptionLabel={(option) => option}
+              disabled={disabled}
+              value={selectedProject}
+              onChange={(event, newValue) => {
+                onProjectNameChange(newValue);
+              }}
+              renderInput={(params) => (
+                <TextField {...params} label="Load Project" />
+              )}
+            />
+          </FormControl>
+        )}
       </Grid>
       <Grid item>
         <FormControl variant="standard" sx={{ m: 2, minWidth: 220 }}>

@@ -1,8 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Settings from "../components/Settings";
 import { supportedLanguages, modelOptions } from "../constants";
 import withStyles from "@material-ui/core/styles/withStyles";
+import Select from "@material-ui/core/Select";
+import { FormControl, InputLabel } from "@material-ui/core";
+import MenuItem from "@material-ui/core/MenuItem";
 import { Button } from "react-bootstrap";
 
 const BACKEND_URL = "http://127.0.0.1:8000";
@@ -20,44 +23,80 @@ const ProjectSetup = ({
   isRecording,
   onConfigure,
 }) => {
+  const [isCreateMode, setCreateMode] = useState(true);
   const [selectedModel, setSelectedModel] = useState(1);
   const [selectedLanguage, setSelectedLanguage] = useState("english");
+  const [selectedProject, setSelectedProject] = useState("");
   const [projectName, setProjectName] = useState("");
+  const [existingProjects, setExistingProjects] = useState([]);
+
+  const handleModeChange = () => {
+    if (isCreateMode) {
+      setCreateMode(false);
+    } else {
+      setCreateMode(true);
+    }
+  };
+
+  const handleStartRecording = () => {
+    if (isCreateMode) {
+      createProject();
+    } else {
+      loadProject();
+    }
+  };
+
+  useEffect(() => {
+    axios
+      .get(`${BACKEND_URL}/projects`)
+      .catch(function (error) {
+        alert("Could not load projects");
+        console.log(error);
+      })
+      .then((res) => {
+        if (res.data.length === 0) {
+          setSelectedProject("No projects found");
+        } else {
+          setExistingProjects(res.data);
+          setSelectedProject(existingProjects[0]);
+        }
+      });
+  }, []);
 
   return (
     <>
       <div className={classes.settings}>
         <Settings
+          newProject={isCreateMode}
           disabled={isTranscribing || isRecording}
           possibleLanguages={supportedLanguages}
           selectedLanguage={selectedLanguage}
           onLanguageChange={setSelectedLanguage}
+          onProjectNameChange={setSelectedProject}
+          selectedProject={selectedProject}
+          existingProjects={existingProjects}
           modelOptions={modelOptions}
           selectedModel={selectedModel}
           onModelChange={setSelectedModel}
           onNameProject={setProjectName}
         />
       </div>
-      <Button onClick={startProject} variant="primary">
-        Create Project
+      <Button onClick={handleModeChange} variant="primary">
+        {isCreateMode ? "Load" : "Create"} Project
       </Button>
       <br></br>
-      <Button onClick={() => onConfigure(true)} variant="success">
-        Already set?
-      </Button>
-      <br></br>
-      <Button
-        onClick={() => {
-          console.log(projectName);
-        }}
-        variant="secondary"
-      >
-        I have a Project
+      <Button onClick={handleStartRecording} variant="success">
+        Start Recording
       </Button>
     </>
   );
 
-  function startProject() {
+  function loadProject(e) {
+    console.log(e);
+    onConfigure(true);
+  }
+
+  function createProject() {
     if (projectName === "") {
       alert("Please give your project a name");
       return;

@@ -10,8 +10,6 @@ import whisper
 
 app = flask.Flask(__name__, static_url_path='', static_folder='build')
 CORS(app)
-app.config["SESSION_PERMANENT"] = False
-app.config["SESSION_TYPE"] = "filesystem"
 app.config['CORS_HEADERS'] = 'Content-Type'
 
 ECHO_SCHEMA = {
@@ -20,19 +18,35 @@ ECHO_SCHEMA = {
     'contents': 'words transcribed by user',
 }
 
-# TODO: CONVERT THESE FUNCTIONS INTO FIELDS OF A PROJECT CLASS. USE A PROJECT CLASS.
+PROMPTS_PATH = 'prompts/facts.json'
+global_current_project_name = ''
+
+
+# class Project(object):
+
+#     def __new__(cls):
+#         if not hasattr(cls, 'instance'):
+#             cls.instance = super(Project, cls).__new__(cls)
+#             return cls.instance
 
 
 def METADATA_JSON_PATH(
-    project_name): return f'projects/{project_name}/metadata.json'
+    project_name=global_current_project_name): return f'projects/{project_name}/metadata.json'
 
 
 def CONFIG_JSON_PATH(
-    project_name): return f'projects/{project_name}/config.json'
+    project_name=global_current_project_name): return f'projects/{project_name}/config.json'
 
 
-PROMPTS_PATH = 'prompts/facts.json'
-GLOBAL_PROJECT_NAME = ''
+@app.route('/projects', methods=['GET'])
+def list_projects():
+    if request.method == 'GET':
+        projects = []
+        for path in Path('projects/').iterdir():
+            if path.is_dir():
+                projects.append(path.name)
+    print(projects)
+    return projects
 
 
 @app.route('/')
@@ -49,20 +63,20 @@ def load_project():
 @app.route('/start_project', methods=['POST'])
 def start_project():
     if request.method == 'POST':
-        global GLOBAL_PROJECT_NAME
-        GLOBAL_PROJECT_NAME = request.form['project_name']
+        global global_current_project_name
+        global_current_project_name = request.form['project_name']
         language, model = model_params(
             request.form['language'], request.form['model_size'])
         config = {
             "file_count": 0,
             "language": language,
             "model": model,
-            "project_name": GLOBAL_PROJECT_NAME
+            "project_name": global_current_project_name
         }
-        failure = init_project(config, GLOBAL_PROJECT_NAME)
+        failure = init_project(config, global_current_project_name)
         if failure:
             return failure
-        return f'Created project at {Path.cwd()}/projects/{GLOBAL_PROJECT_NAME}'
+        return f'Created project at {Path.cwd()}/projects/{global_current_project_name}'
 
 
 @app.route('/save_audio', methods=['POST'])

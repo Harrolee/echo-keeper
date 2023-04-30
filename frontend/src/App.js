@@ -54,12 +54,6 @@ const App = ({ classes }) => {
     });
   }, [setPrompts]);
 
-  // useEffect(() => {
-  //   setIsCorrecting((!isRecording || !isTranscribing) && !isIdle);
-  //   setIsIdle(!isRecording && !isTranscribing && !isCorrecting);
-  //   console.log(`isIdle: ${isIdle} ----- isCorrecting: ${isCorrecting}`);
-  // }, [isCorrecting, isIdle, isRecording, isTranscribing]);
-
   function startRecording() {
     setStopTranscriptionSession(false);
     setIsRecording(true);
