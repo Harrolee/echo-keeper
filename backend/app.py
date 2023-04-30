@@ -4,11 +4,11 @@ import json
 import tempfile
 import flask
 import logging
-from flask import request
+from flask import request, send_from_directory
 from flask_cors import CORS
 import whisper
 
-app = flask.Flask(__name__)
+app = flask.Flask(__name__, static_url_path='', static_folder='build')
 CORS(app)
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
@@ -33,6 +33,11 @@ def CONFIG_JSON_PATH(
 
 PROMPTS_PATH = 'prompts/facts.json'
 GLOBAL_PROJECT_NAME = ''
+
+
+@app.route('/')
+def serve_frontend():
+    return send_from_directory(app.static_folder, 'index.html')
 
 
 @app.route('/load_project', methods=['POST'])
