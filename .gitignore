@@ -1,6 +1,6 @@
 /backend/venv/
 /backend/__pycache__/
-/backend/projects/*
+/backend/user/projects/*
 /output/*
 flask_session
 /frontend/node_modules/

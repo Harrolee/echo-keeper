@@ -18,7 +18,8 @@ ECHO_SCHEMA = {
     'contents': 'words transcribed by user',
 }
 
-PROMPTS_PATH = 'prompts/facts.json'
+PROMPTS_PATH = Path('user/prompts/prompts.json')
+PROJECTS_PATH = Path('user/projects')
 
 
 class Project():
@@ -36,7 +37,7 @@ class Project():
         self._name = project_name.replace(' ', '')
 
     def project_path(self):
-        return Path('projects', self._name)
+        return Path(PROJECTS_PATH, self._name)
 
     def metadata_path(self):
         return Path(self.project_path(), 'metadata.json')
@@ -63,7 +64,7 @@ def serve_frontend():
 def list_projects():
     if request.method == 'GET':
         projects = []
-        for path in Path('projects/').iterdir():
+        for path in PROJECTS_PATH.iterdir():
             if path.is_dir():
                 projects.append(path.name)
     return projects
@@ -92,7 +93,6 @@ def start_project():
             "model": model,
             "project_name": project.name()
         }
-        print(project.name())
         failure = init_project(config)
         if failure:
             return failure
@@ -103,22 +103,14 @@ def start_project():
 def save_audio():
     if request.method == 'POST':
         wav_file = request.files['audio_data']
-        try:
-            save_path = Path(
-                f'projects/{project.name()}/wavs', next_filename()).__str__()
-            wav_file.save(save_path)
-        except:
-            start_project()
-            save_path = f'wavs/{next_filename()}'
-            wav_file.save(save_path)
+        save_path = Path(project.wavs_path(), next_filename()).__str__()
+        wav_file.save(save_path)
         # retrieve model and language from config
         with open(project.config_path(), 'r') as f:
             config = json.load(f)
-
         # transcribe audio
         audio_model = whisper.load_model(config['model'])
         result = audio_model.transcribe(save_path, language=config['language'])
-
         return {"text": result['text'].strip(), "filename": save_path}
 
 
@@ -219,7 +211,7 @@ def model_params(language, model_size):
 
 def init_project(config):
     # Ensure the project dir exists
-    Path('projects/').mkdir(exist_ok=True)
+    Path('user/projects/').mkdir(exist_ok=True)
 
     try:
         Path(project.project_path()).mkdir()
@@ -267,13 +259,13 @@ def rm_echo_from_metadata(filename):
 
 def seconds_in_wav(path_of_wav_file):
     # x = wave.open(path_of_wav_file, 'r')
-    # somehow get seconds
+    # TODO: somehow get seconds
     # x.???
     return 3
 
 
 @app.route('/export_metadata_txt', methods=['POST'])
-def export_metadata_txt(outfile=project.export_path()):
+def export_metadata_txt():
     """
     Convert metadata.json to the lj-speech csv format descibed as below by Keith Ito
     exert below from https://keithito.com/LJ-Speech-Dataset/
@@ -285,8 +277,6 @@ def export_metadata_txt(outfile=project.export_path()):
         Normalized Transcription: transcription with numbers, ordinals, and monetary units expanded into full words (UTF-8).
     """
     if request.method == 'POST':
-        with open(outfile, 'w') as f:
-            pass
         with open(project.metadata_path(), 'r') as f:
             metadata = json.load(f)
         for echo in metadata['echoes']:

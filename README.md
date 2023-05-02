@@ -1,7 +1,7 @@
 <p align="center">
   <img width="60px" src="https://user-images.githubusercontent.com/6180201/124313197-cc93f200-db70-11eb-864a-fc65765fc038.png" alt="giant microphone"/>   <br/>
   <h2 align="center">Echo Keeper</h2>
-  <h6 align="center">Create your own datasets for speech synthesis</h6>
+  <h6 align="center">Create your own datasets for training speech synthesis models</h6>
 </div>
 
 # What
@@ -9,18 +9,54 @@
 Create voice datasets in the lj-speech format.(1)
 Export your dataset and use it to train a model with [Coqui🐸 TTS](https://github.com/coqui-ai/TTS)
 
-# Quickstart
+# Quickstart 1:
+
+_If you want to use the prompts in this repo..._
+
+## Run container
 
 Choose the directory where you would like to retrieve your exported dataset.
-Use that path as the first argument to (-v) the volume option in the docker run command below
+Bind mount that directory to `/app/backend/user/projects` with (-v) the volume option as below
 
-`docker run -p 8000:8000 -v /path/to/your/export/dir:/app/backend/projects echokeeper`
+`docker run -p 8000:8000 -v /path/to/your/export/dir:/app/backend/user/projects echokeeper`
 
-# Containerized Setup
+## Create a new project
 
-See quickstart
+Type a name for your project into the
+
+## Select model parameters for Whisper
+
+Whisper is the magic behind this whole app. It transcribes your recorded audio into text
+Select your language and model size. The bigger models perform better but require more RAM and disk space.
+
+## Read a prompt and record audio
+
+The model will be downloaded after you make your first recording. Unfortunately, this means there will be a longish pause between the moment that you finish your first recording and the moment that you see your first transcription. Every following transcription will feel instantaneous.
+
+# Quickstart 2: Bring your own prompts
+
+_If you want to use your own prompts..._
+
+## Run container
+
+1. Choose the directory where you would like to retrieve your exported dataset. In this example, we'll call that directory 'output'.
+2. Create a directory structure like this:
+
+```
+  /output
+  |-/projects
+    |--leave this dir empty if you are starting from scratch
+    |--if you want to continue recording to a project, place that project folder here
+  |-/prompts
+    |--prompt.json
+```
+
+3. Bind mount your output dir to the `/app/backend/user`
+   `docker run -p 8000:8000 -v /path/to/your/export/dir:/app/backend/user echokeeper`
 
 # Manual Setup
+
+_run on your machine without a container_
 
 1. Whisper requires the command-line tool [`ffmpeg`](https://ffmpeg.org/) and [`portaudio`](http://portaudio.com/docs/v19-doxydocs/index.html) to be installed on your system, which is available from most package managers:
 
@@ -50,7 +86,6 @@ scoop install ffmpeg
 
 # Work in Progress
 
-[] Allow users to pass in custom prompts
 [] Track duration of recordings
 [] In export_metadata_txt(), create the third column of the ljspeech format, per Keith Ito's spec
 
@@ -67,4 +102,4 @@ Metadata is provided in transcripts.csv. This file consists of one record per li
     Transcription: words spoken by the reader (UTF-8)
     Normalized Transcription: transcription with numbers, ordinals, and monetary units expanded into full words (UTF-8).
 
-!Note: Normalized Transcriptions aren't complete as of 5/1/23
+!Note: Normalized Transcriptions aren't complete as of 5/2/23
