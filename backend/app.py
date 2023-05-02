@@ -19,26 +19,44 @@ ECHO_SCHEMA = {
 }
 
 PROMPTS_PATH = 'prompts/facts.json'
-global_current_project_name = ''
 
 
-# class Project(object):
+class Project():
+    """
+    Singleton class for managing pathnames
+    """
 
-#     def __new__(cls):
-#         if not hasattr(cls, 'instance'):
-#             cls.instance = super(Project, cls).__new__(cls)
-#             return cls.instance
+    def __init__(self):
+        self._name = ""
+
+    def name(self):
+        return self._name
+
+    def set_name(self, project_name: str):
+        self._name = project_name.replace(' ', '')
+
+    def project_path(self):
+        return Path('projects', self._name)
+
+    def metadata_path(self):
+        return Path(self.project_path(), 'metadata.json')
+
+    def config_path(self):
+        return Path(self.project_path(), 'config.json')
+
+    def wavs_path(self):
+        return Path(self.project_path(), 'wavs')
+
+    def export_path(self):
+        return Path(self.project_path(), 'metadata.txt')
 
 
-# Hey Lee! Functions in python do not redeclare themselves. 
-# If you want them to use the value for global_current_project_name, 
-# you should create getter functions inside of a class.
-def METADATA_JSON_PATH(
-    project_name=global_current_project_name): return Path(f'projects/{project_name}/metadata.json')
+project = Project()
 
 
-def CONFIG_JSON_PATH(
-    project_name=global_current_project_name): return Path(f'projects/{project_name}/config.json')
+@app.route('/')
+def serve_frontend():
+    return send_from_directory(app.static_folder, 'index.html')
 
 
 @app.route('/projects', methods=['GET'])
@@ -48,44 +66,37 @@ def list_projects():
         for path in Path('projects/').iterdir():
             if path.is_dir():
                 projects.append(path.name)
-    print(projects)
     return projects
-
-
-@app.route('/')
-def serve_frontend():
-    return send_from_directory(app.static_folder, 'index.html')
 
 
 @app.route('/load_project', methods=['POST'])
 def load_project():
     if request.method == 'POST':
-        global global_current_project_name
-        global_current_project_name = request.form['project_name']
-        # language, model = ogre(global_current_project_name)
+        project.set_name(request.form['project_name'])
+        # language, model = ogre(project.name())
         # # overwrite config with new language and model_size
         # language, model = model_params(
         #     request.form['language'], request.form['model_size'])
-        return f"Loaded {global_current_project_name}"
+        return f"Loaded {project.name()}"
 
 
 @app.route('/start_project', methods=['POST'])
 def start_project():
     if request.method == 'POST':
-        global global_current_project_name
-        global_current_project_name = str(request.form['project_name']).replace(' ', '') # deny spaces
+        project.set_name(request.form['project_name'])
         language, model = model_params(
             request.form['language'], request.form['model_size'])
         config = {
             "file_count": 0,
             "language": language,
             "model": model,
-            "project_name": global_current_project_name
+            "project_name": project.name()
         }
-        failure = init_project(config, global_current_project_name)
+        print(project.name())
+        failure = init_project(config)
         if failure:
             return failure
-        return f'Created project at {Path.cwd()}/projects/{global_current_project_name}'
+        return f'Created project at {Path.cwd()}/projects/{project.name()}'
 
 
 @app.route('/save_audio', methods=['POST'])
@@ -93,25 +104,22 @@ def save_audio():
     if request.method == 'POST':
         wav_file = request.files['audio_data']
         try:
-            save_path = Path(f'projects/{global_current_project_name}/wavs',next_filename()).__str__()
-            print(save_path)
+            save_path = Path(
+                f'projects/{project.name()}/wavs', next_filename()).__str__()
             wav_file.save(save_path)
         except:
             start_project()
             save_path = f'wavs/{next_filename()}'
             wav_file.save(save_path)
-        print('after')
         # retrieve model and language from config
-        with open(CONFIG_JSON_PATH(global_current_project_name), 'r') as f:
-            print('in open')
+        with open(project.config_path(), 'r') as f:
             config = json.load(f)
 
         # transcribe audio
         audio_model = whisper.load_model(config['model'])
-        print('gonna transcribe')
         result = audio_model.transcribe(save_path, language=config['language'])
 
-        return {"text": result['text'], "filename": save_path}
+        return {"text": result['text'].strip(), "filename": save_path}
 
 
 @app.route('/save_transcription', methods=['POST'])
@@ -126,8 +134,8 @@ def save_transcription():
 @app.route('/delete_recording', methods=['DELETE'])
 def delete_recording():
     if request.method == 'DELETE':
-        echo_path = f'wavs/{next_filename()}'
-        Path.unlink(Path(echo_path))
+        echo_path = Path(project.wavs_path(), next_filename())
+        Path.unlink(echo_path)
         return f'deleted {echo_path}'
 
 
@@ -167,36 +175,37 @@ def transcribe():
 
 
 def add_line(key: str, value: str):
-    with open('wavs/metadata.txt', 'a') as f:
-        f.write(f'\n{key}|{value}')
+    with open(project.export_path(), 'a') as f:
+        f.write(f'\n{key}|{value}|{value}')
+        # TODO: Actually export the third column to Keith Ito's ljspeech spec
+        # instead of lazily appending the same value to the end
 
 
 def next_filename():
-    print(CONFIG_JSON_PATH(global_current_project_name))
-    with open(CONFIG_JSON_PATH(global_current_project_name), 'r') as f:
+    with open(project.config_path(), 'r') as f:
         config = json.load(f)
     return f'wav{config["file_count"]}.wav'
 
 
 def current_filename():
-    with open(CONFIG_JSON_PATH(), 'r') as f:
+    with open(project.config_path(), 'r') as f:
         config = json.load(f)
     return f'wav{config["file_count"] - 1}.wav'
 
 
 def increment_file_count():
-    with open(CONFIG_JSON_PATH(), 'r') as f:
+    with open(project.config_path(), 'r') as f:
         config = json.load(f)
     config["file_count"] = config["file_count"] + 1
-    with open(CONFIG_JSON_PATH(), 'w') as f:
+    with open(project.config_path(), 'w') as f:
         f.write(json.dumps(config))
 
 
 def decrement_file_count():
-    with open(CONFIG_JSON_PATH(), 'r') as f:
+    with open(project.config_path(), 'r') as f:
         config = json.load(f)
     config["file_count"] = config["file_count"] - 1
-    with open(CONFIG_JSON_PATH(), 'w') as f:
+    with open(project.config_path(), 'w') as f:
         f.write(json.dumps(config))
 
 
@@ -208,37 +217,37 @@ def model_params(language, model_size):
     return language, model
 
 
-def init_project(config, project_name):
+def init_project(config):
     # Ensure the project dir exists
     Path('projects/').mkdir(exist_ok=True)
 
     try:
-        Path(f'projects/{project_name}').mkdir()
+        Path(project.project_path()).mkdir()
     except FileExistsError:
         print(FileExistsError)
         logging.exception(
-            f' A project named {project_name} already exists.')
+            f' A project named {project.name()} already exists.')
         return
 
-    Path(f'projects/{project_name}/wavs').mkdir()
-    with open(CONFIG_JSON_PATH(project_name), 'w') as f:
+    Path(project.wavs_path()).mkdir()
+    with open(project.config_path(), 'w') as f:
         f.write(json.dumps(config))
-    with open(METADATA_JSON_PATH(project_name), 'w') as f:
+    with open(project.metadata_path(), 'w') as f:
         f.write(json.dumps({
-            "project_name": f'{project_name}',
+            "project_name": project.name(),
             "echoes": [],
         }))
 
 
 def add_echo(transcription, filename):
-    with open(METADATA_JSON_PATH(), 'r') as f:
+    with open(project.metadata_path(), 'r') as f:
         contents = json.load(f)
     contents['echoes'].append({
         "filename": filename,
         "length_in_seconds": seconds_in_wav(f'wavs/{filename}'),
         "contents": transcription,
     })
-    with open(METADATA_JSON_PATH(), 'w') as f:
+    with open(project.metadata_path(), 'w') as f:
         f.write(json.dumps(contents))
 
 
@@ -248,11 +257,11 @@ def rm_echo(echo_path):
 
 
 def rm_echo_from_metadata(filename):
-    with open(METADATA_JSON_PATH(), 'r') as f:
+    with open(project.metadata_path(), 'r') as f:
         metadata = json.load(f)
     metadata['echoes'] = list(
         filter(lambda echo: echo['filename'] != filename, metadata['echoes']))
-    with open(METADATA_JSON_PATH(), 'w') as f:
+    with open(project.metadata_path(), 'w') as f:
         f.write(json.dumps(metadata))
 
 
@@ -263,58 +272,11 @@ def seconds_in_wav(path_of_wav_file):
     return 3
 
 
-# def save_wav(audio_file: FileStorage, outfile: str):
-    # bytes = audio_file.stream.read()
-    # buffer = io.BytesIO(bytes)
-    # buffer.seek(0)
-
-    # audio_file.save(buffer)
-
-    # buffer.close()
-    # print(audio_file.read())
-    # buffer.write(audio_file.read())
-
-    # with wave.open(outfile, 'wb') as out_wav:
-    #     # Set the .wav file parameters based on the FileStorage object
-    #     out_wav.setnchannels(1)
-    #     out_wav.setsampwidth(2)
-    #     out_wav.setframerate(44100)
-
-    #     # Write the contents of the buffer to the .wav file
-    #     out_wav.writeframes(buffer.read())
-
-    # buffer.close()
-
-    # # Open a new WAV file for writing
-    # output_file = wave.open(outfile, 'w')
-
-    # audio_file.sa
-
-    # with open(audio_file, 'rb') as wav_content:
-    #     print(wav_content)
-    #     # Set WAV file parameters
-    #     n_channels = 1  # Mono audio
-    #     sample_width = 2  # 16-bit audio
-    #     frame_rate = 44100  # Sample rate in Hz
-    #     n_frames = len(wav_content)  # Number of frames in the audio data
-
-    #     output_file.setnchannels(n_channels)
-    #     output_file.setsampwidth(sample_width)
-    #     output_file.setframerate(frame_rate)
-    #     output_file.setnframes(n_frames)
-
-    #     # Write the audio data to the WAV file
-    #     output_file.writeframesraw(wav_content)
-
-    # # Close the WAV file
-    # output_file.close()
-
-
 @app.route('/export_metadata_txt', methods=['POST'])
-def export_metadata_txt(outfile='wavs/metadata.txt'):
+def export_metadata_txt(outfile=project.export_path()):
     """
     Convert metadata.json to the lj-speech csv format descibed as below by Keith Ito
-    excpert below from https://keithito.com/LJ-Speech-Dataset/
+    exert below from https://keithito.com/LJ-Speech-Dataset/
 
         Metadata is provided in transcripts.csv. This file consists of one record per line, delimited by the pipe character (0x7c). The fields are:
 
@@ -325,7 +287,7 @@ def export_metadata_txt(outfile='wavs/metadata.txt'):
     if request.method == 'POST':
         with open(outfile, 'w') as f:
             pass
-        with open(METADATA_JSON_PATH(), 'r') as f:
+        with open(project.metadata_path(), 'r') as f:
             metadata = json.load(f)
         for echo in metadata['echoes']:
             add_line(echo['filename'], echo['contents'])
@@ -336,7 +298,7 @@ def export_metadata_txt(outfile='wavs/metadata.txt'):
 def duration_total():
     if request.method == 'GET':
         total_duration = 0
-        with open(METADATA_JSON_PATH(), 'r') as f:
+        with open(project.metadata_path(), 'r') as f:
             metadata = json.load(f)
         for echo in metadata['echoes']:
             total_duration += echo['length_in_seconds']

@@ -46,4 +46,4 @@ ENV FLASK_APP=app.py
 # Run the command to start the server
 CMD ["flask", "run", "--port=8000", "--host=0.0.0.0"] 
 
-# docker run -p 8000:8000 -v /Users/lee/projects/echo-keeper/output:/app/backend/projects echokeeper
+# docker run -p 8000:8000 -v /Users/lee/projects/echo-keeper/backend/projects:/app/backend/projects echokeeper

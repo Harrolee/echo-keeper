@@ -78,8 +78,8 @@ const ProjectSetup = ({
           onNameProject={setProjectName}
         />
       </div>
-      <Button onClick={handleModeChange} variant="primary">
-        {isCreateMode ? "Load" : "Create"} Project
+      <Button onClick={handleModeChange} variant="secondary">
+        {isCreateMode ? "Load" : "Create"}
       </Button>
       <br></br>
       <Button onClick={handleStartRecording} variant="success">
@@ -89,6 +89,12 @@ const ProjectSetup = ({
   );
 
   function loadProject() {
+    console.log(selectedProject);
+    if (!selectedProject) {
+      alert("Please pick a project from the Load Project dropdown");
+      return;
+    }
+
     const headers = {
       "content-type": "multipart/form-data",
     };

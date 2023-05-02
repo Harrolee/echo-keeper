@@ -111,6 +111,12 @@ const App = ({ classes }) => {
     setIsCorrecting(false);
   }
 
+  function handleExportDataset() {
+    axios.post(`${BACKEND_URL}/export_metadata_txt`).then(() => {
+      alert("Exported project");
+    });
+  }
+
   return (
     <div className={classes.root}>
       <div className={classes.title}>
@@ -180,6 +186,9 @@ const App = ({ classes }) => {
               />
             )}
           </div>
+          <Button type="submit" variant="dark" onClick={handleExportDataset}>
+            Export Dataset
+          </Button>
         </>
       )}
     </div>
