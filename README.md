@@ -7,11 +7,9 @@
 # What
 
 Create voice datasets in the lj-speech format.(1)
-Export your dataset and use it to train a model with [Coqui🐸 TTS](https://github.com/coqui-ai/TTS)
+Export your dataset and use it to train a model with [Coqui 🐸 TTS](https://github.com/coqui-ai/TTS)
 
-# Quickstart 1:
-
-_If you want to use the prompts in this repo..._
+# Quickstart 1: Just record and transcribe audio
 
 ## Run container
 
@@ -20,18 +18,9 @@ Bind mount that directory to `/app/backend/user/projects` with (-v) the volume o
 
 `docker run -p 8000:8000 -v /path/to/your/export/dir:/app/backend/user/projects echokeeper`
 
-## Create a new project
+## Default prompts?
 
-Type a name for your project into the
-
-## Select model parameters for Whisper
-
-Whisper is the magic behind this whole app. It transcribes your recorded audio into text
-Select your language and model size. The bigger models perform better but require more RAM and disk space.
-
-## Read a prompt and record audio
-
-The model will be downloaded after you make your first recording. Unfortunately, this means there will be a longish pause between the moment that you finish your first recording and the moment that you see your first transcription. Every following transcription will feel instantaneous.
+Running the container this way loads [these prompts](https://github.com/Harrolee/echo-keeper/tree/main/backend/user/prompts). You could record a 25minute dataset using these. The result will probably not fit your use case. I recommend building your own prompts with [this notebook](https://colab.research.google.com/drive/1lCEgck32s_Jbqo9ZLxfa92Djp1kLx2or?usp=sharing).
 
 # Quickstart 2: Bring your own prompts
 
@@ -53,6 +42,21 @@ _If you want to use your own prompts..._
 
 3. Bind mount your output dir to the `/app/backend/user`
    `docker run -p 8000:8000 -v /path/to/your/export/dir:/app/backend/user echokeeper`
+
+# Use
+
+## Create a new project
+
+Type a name for your project into the New Project input
+
+## Select model parameters for Whisper
+
+[Whisper](https://github.com/openai/whisper) is the magic behind this whole app. It transcribes your recorded audio into text
+Select your language and model size. The bigger models perform better but require more RAM and disk space.
+
+## Read a prompt and record audio
+
+The model will be downloaded after you make your first recording. Unfortunately, this means there will be a longish pause between the moment that you finish your first recording and the moment that you see your first transcription. Every following transcription will feel instantaneous.
 
 # Manual Setup
 
@@ -86,8 +90,9 @@ scoop install ffmpeg
 
 # Work in Progress
 
-[] Track duration of recordings
-[] In export_metadata_txt(), create the third column of the ljspeech format, per Keith Ito's spec
+- [] Normalize dataset audio during the Export phase
+- [] Track duration of recordings
+- [] In export_metadata_txt(), create the third column of the ljspeech format, per Keith Ito's spec
 
 # License
 
@@ -102,4 +107,4 @@ Metadata is provided in transcripts.csv. This file consists of one record per li
     Transcription: words spoken by the reader (UTF-8)
     Normalized Transcription: transcription with numbers, ordinals, and monetary units expanded into full words (UTF-8).
 
-!Note: Normalized Transcriptions aren't complete as of 5/2/23
+!Note: Normalized Transcriptions aren't complete as of 5/6/23
