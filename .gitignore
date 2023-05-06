@@ -1,11 +1,10 @@
-/backend/venv/
+venv/
 /backend/__pycache__/
 /backend/user/projects/*
 /output/*
 flask_session
 /frontend/node_modules/
 /frontend/build/
-/frontend/public/
 local-dev
 /.vscode
 .DS_Store

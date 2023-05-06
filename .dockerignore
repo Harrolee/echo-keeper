@@ -1,0 +1,5 @@
+# node_modules
+# local-dev
+# venv
+*/backend/user/projects/*
+*/backend/whisper*
